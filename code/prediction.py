@@ -2,7 +2,9 @@ from sklearn.ensemble import RandomForestClassifier
 import pandas as pd
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
+from pymongo import MongoClient
 
+client = MongoClient("mongodb://localhost/RiskyCredit")
 data = pd.read_csv('../data/hmeq_clean_cat.csv')
 model_rf = RandomForestClassifier(n_estimators=200)
 X = data.drop(columns=['BAD','Unnamed: 0'])
@@ -20,6 +22,17 @@ def predict(X_test):
     X_test = tonumeric(X_test)
     df = pd.DataFrame(np.array([X_test]),columns=X.columns)
     answer = model_rf.predict(df)
+    granted = client.get_default_database()["Granted"]
+    denied = client.get_default_database()["Denied"]
+    features = ['LOAN','MORTDUE','VALUE','REASON','JOB', 'YOJ', 'DEROG',
+                'DELINQ','CLAGE','NINQ','CLNO','DEBTINC']
+    user = {feat: '' for feat in features}
+    for i in range(12):
+        user[features[i]] = X_test[i]
+    if answer[0]:
+        denied.insert_one(user)
+    else: 
+        granted.insert_one(user)
     return answer[0]
 
 
